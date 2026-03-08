@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # ================= REALE =================
+  firegex:
+    build: 
+      context: ./firegex-main/firegex-main
+    image: firegex:test
+    container_name: firegex_test
+    ports:
+      - "4444:4444"
+      - "5000:5000"
+    environment:
+      - PORT=4444
+      - NTHREADS=4
+      - DEBUG=true
+      - PSW_HASH_SET=a9bb69a3282aa92e7f132b59183eeacc6c73e42650eba5d1045adb6daf816a84-6ce94ba6c2b5aa5e01f516dda427e10f30d7151bf78f2fb0780f16f5c98214bf
+      - SIMULATION_TARGET=firegex_sim_test # Target del traffico
+      - SIMULATION_IP=192.168.16.3
+    volumes:
+      - firegex_data:/execute/db
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    networks:
+      - test_net
+
+  vuln_service:
+    build: ./vuln_service
+    container_name: vuln_service_test
+    network_mode: "service:firegex"
+    depends_on:
+      - firegex
+
+  # ================= SIMULATO =================
+  firegex_sim:
+    image: firegex:test
+    container_name: firegex_sim_test
+    ports:
+      - "4446:4444" 
+      # Porta 5000 interna è esposta come 5001 per test manuale
+      - "5002:5000" 
+    environment:
+      - PORT=4444
+      - NTHREADS=4
+      - PSW_HASH_SET=a9bb69a3282aa92e7f132b59183eeacc6c73e42650eba5d1045adb6daf816a84-6ce94ba6c2b5aa5e01f516dda427e10f30d7151bf78f2fb0780f16f5c98214bf
+    volumes:
+      - firegex_sim_data:/execute/db
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    networks:
+      - test_net
+
+  vuln_service_sim:
+    build: ./vuln_service
+    container_name: vuln_service_sim_test
+    network_mode: "service:firegex_sim"
+    depends_on:
+      - firegex_sim
+
+  # ================= TESTING =================
+  # Container effimero per lanciare i test
+  tester:
+    image: python:3.9-slim
+    container_name: tester
+    volumes:
+      - ./tests:/tests
+    command: tail -f /dev/null # Keep alive per docker exec
+    networks:
+      - test_net
+    depends_on:
+      - firegex
+      - firegex_sim
+
+volumes:
+  firegex_data:
+  firegex_sim_data:
+
+networks:
+  test_net:
+    driver: bridge

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # AMBIENTE SIMULATO (Digital Twin)
+  # ==========================================
+  
+  # 1. WAF Simulato: Qui testiamo le regole prima del deploy
+  firegex_sim:
+    image: ghcr.io/pwnzer0tt1/firegex:latest
+    container_name: firegex_sim
+    restart: unless-stopped
+    ports:
+      - "4445:4444" # Dashboard Simulazione (Porta 4445)
+      - "5001:5000" # Servizio Simulato (Porta 5001)
+    environment:
+      - PORT=4444
+      - NTHREADS=4
+      # Password: admin
+      - PSW_HASH_SET=a9bb69a3282aa92e7f132b59183eeacc6c73e42650eba5d1045adb6daf816a84-6ce94ba6c2b5aa5e01f516dda427e10f30d7151bf78f2fb0780f16f5c98214bf
+    volumes:
+      - firegex_sim_data:/execute/db
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+    networks:
+      - simulation_net
+
+  # 2. Servizio Simulato: Replica identica del servizio vulnerabile
+  vuln_service_sim:
+    build: ../vuln_service
+    container_name: vuln_service_sim
+    # Network Mode: service:firegex_sim
+    # Questo container condivide lo stack di rete del WAF simulato.
+    # Firegex_sim intercetta il traffico sulla 5000 (interna) e lo gira qui.
+    network_mode: "service:firegex_sim" 
+    depends_on:
+      - firegex_sim
+
+  # 3. Traffic Replayer (Opzionale / Concettuale)
+  # In uno scenario reale, questo container riceverebbe il traffico clonato
+  # dalla macchina reale e lo sparerebbe contro "firegex_sim".
+  # Per ora è un placeholder per script python futuri.
+  traffic_player:
+    image: python:3.9-slim
+    container_name: traffic_player
+    volumes:
+      - ./traffic_tools:/app
+    working_dir: /app
+    command: tail -f /dev/null # In attesa di comandi
+    networks:
+      - simulation_net
+
+volumes:
+  firegex_sim_data:
+
+networks:
+  simulation_net:
+    driver: bridge

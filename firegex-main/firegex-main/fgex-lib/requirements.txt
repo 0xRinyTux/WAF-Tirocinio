@@ -1,0 +1,9 @@
+typer
+pydantic>=2
+typing-extensions>=4.7.1
+pycryptodome
+watchfiles
+fgex
+websockets
+brotli
+pyllhttp

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  firegex:
+    image: ghcr.io/pwnzer0tt1/firegex:latest
+    container_name: firegex
+    restart: unless-stopped
+    ports:
+      - "4444:4444" # Firegex Dashboard
+      - "5000:5000" # Vuln Service (Esposto tramite la rete di Firegex)
+    environment:
+      - PORT=4444
+      - NTHREADS=4
+      - PSW_HASH_SET=a9bb69a3282aa92e7f132b59183eeacc6c73e42650eba5d1045adb6daf816a84-6ce94ba6c2b5aa5e01f516dda427e10f30d7151bf78f2fb0780f16f5c98214bf
+    volumes:
+      - firegex_data:/execute/db
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+    networks:
+      - firegex_net
+
+  vuln_service:
+    build: ./new_vuln_service
+    container_name: vuln_service
+    network_mode: "service:firegex" # TRUCCO: Condivide la scheda di rete con Firegex!
+    depends_on:
+      - firegex
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - firegex_net
+
+volumes:
+  firegex_data:
+  ollama_data:
+
+networks:
+  firegex_net:
+    driver: bridge
